@@ -17,14 +17,30 @@
       {
         "command": "cpp-header-expander.expandFile",
         "title": "C++ Header Expander: Inline Current File",
-        "category": "C++ Expander"
+        "category": "C++ Expander",
+        "icon": "$(new-file)"
       },
       {
         "command": "cpp-header-expander.expandToClipboard",
         "title": "C++ Header Expander: Inline to Clipboard",
-        "category": "C++ Expander"
+        "category": "C++ Expander",
+        "icon": "$(copy)"
       }
     ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "cpp-header-expander.expandFile",
+          "when": "editorLangId == cpp || editorLangId == c",
+          "group": "navigation"
+        },
+        {
+          "command": "cpp-header-expander.expandToClipboard",
+          "when": "editorLangId == cpp || editorLangId == c",
+          "group": "navigation"
+        }
+      ]
+    },
     "configuration": {
       "title": "C++ Header Expander",
       "properties": {
