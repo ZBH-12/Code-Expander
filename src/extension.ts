@@ -1,0 +1,137 @@
+import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
+import { CPlusPlusExpander, IFileProvider } from './expander';
+
+// Implement the IFileProvider using the native Node/VS Code APIs
+class VSCodeFileProvider implements IFileProvider {
+  public isFile(filePath: string): boolean {
+    try {
+      return fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+    } catch {
+      return false;
+    }
+  }
+
+  public readFile(filePath: string): string {
+    return fs.readFileSync(filePath, 'utf-8');
+  }
+
+  public resolvePath(base: string, ...parts: string[]): string {
+    if (base) {
+      return path.resolve(base, ...parts);
+    }
+    return path.resolve(...parts);
+  }
+
+  public getParentDir(filePath: string): string {
+    return path.dirname(filePath);
+  }
+}
+
+export function activate(context: vscode.ExtensionContext) {
+  const provider = new VSCodeFileProvider();
+
+  // Command 1: Inline C++ code to a newly created file
+  let expandFileCmd = vscode.commands.registerCommand('cpp-header-expander.expandFile', async () => {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      vscode.window.showErrorMessage('No active text editor open. Select a C++ file first.');
+      return;
+    }
+
+    const doc = activeEditor.document;
+    const currentFilePath = doc.fileName;
+
+    // Get user configured libraries and standard search settings
+    const config = vscode.workspace.getConfiguration('cppHeaderExpander');
+    const libraryPaths = config.get<string[]>('librarySearchPaths') || [];
+    const defaultOutput = config.get<string>('defaultOutputFilename') || 'expanded_output.cpp';
+
+    // Build lists of libraries. In VS Code, we resolve paths relative to the current workspace root if needed
+    const wsFolders = vscode.workspace.workspaceFolders;
+    const resolvedLibs: string[] = [];
+
+    for (const libPath of libraryPaths) {
+      if (path.isAbsolute(libPath)) {
+        resolvedLibs.push(libPath);
+      } else if (wsFolders && wsFolders.length > 0) {
+        resolvedLibs.push(path.resolve(wsFolders[0].uri.fsPath, libPath));
+      } else {
+        // Fallback to active document folder context
+        resolvedLibs.push(path.resolve(path.dirname(currentFilePath), libPath));
+      }
+    }
+
+    // Always fallback search to the current active file's parent folder and workspace folder
+    resolvedLibs.push(path.dirname(currentFilePath));
+    if (wsFolders && wsFolders.length > 0) {
+      resolvedLibs.push(wsFolders[0].uri.fsPath);
+    }
+
+    vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: "Expanding C++ Headers...",
+      cancellable: false
+    }, async () => {
+      try {
+        const expander = new CPlusPlusExpander(resolvedLibs, provider);
+        const result = expander.expandCode(currentFilePath);
+
+        // Open expanded file in memory
+        const document = await vscode.workspace.openTextDocument({
+          content: result,
+          language: 'cpp'
+        });
+        await vscode.window.showTextDocument(document);
+        vscode.window.showInformationMessage('Successfully expanded C++ headers! Save the newly generated file.');
+      } catch (error: any) {
+        vscode.window.showErrorMessage('Failed to expand headers: ' + error.message);
+      }
+    });
+  });
+
+  // Command 2: Inline C++ code directly into the system clipboard
+  let expandToClipboardCmd = vscode.commands.registerCommand('cpp-header-expander.expandToClipboard', async () => {
+    const activeEditor = vscode.window.activeTextEditor;
+    if (!activeEditor) {
+      vscode.window.showErrorMessage('No active text editor open.');
+      return;
+    }
+
+    const doc = activeEditor.document;
+    const currentFilePath = doc.fileName;
+
+    const config = vscode.workspace.getConfiguration('cppHeaderExpander');
+    const libraryPaths = config.get<string[]>('librarySearchPaths') || [];
+
+    const wsFolders = vscode.workspace.workspaceFolders;
+    const resolvedLibs: string[] = [];
+
+    for (const libPath of libraryPaths) {
+      if (path.isAbsolute(libPath)) {
+        resolvedLibs.push(libPath);
+      } else if (wsFolders && wsFolders.length > 0) {
+        resolvedLibs.push(path.resolve(wsFolders[0].uri.fsPath, libPath));
+      } else {
+        resolvedLibs.push(path.resolve(path.dirname(currentFilePath), libPath));
+      }
+    }
+    resolvedLibs.push(path.dirname(currentFilePath));
+
+    try {
+      const expander = new CPlusPlusExpander(resolvedLibs, provider);
+      const result = expander.expandCode(currentFilePath);
+
+      // Copy directly to the integrated VS Code clipboard API
+      await vscode.env.clipboard.writeText(result);
+      vscode.window.showInformationMessage('Expanded C++ code successfully copied to the clipboard!');
+    } catch (error: any) {
+      vscode.window.showErrorMessage('Failed to expand headers: ' + error.message);
+    }
+  });
+
+  context.subscriptions.push(expandFileCmd, expandToClipboardCmd);
+}
+
+export function deactivate() {}

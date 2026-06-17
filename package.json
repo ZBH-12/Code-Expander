@@ -1,0 +1,63 @@
+{
+  "name": "cpp-header-expander",
+  "displayName": "C++ Header Expander",
+  "description": "Recursively inlines/expands custom C/C++ includes into a single file.",
+  "version": "0.1.0",
+  "publisher": "cpp-expander-developer",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cpp-header-expander.expandFile",
+        "title": "C++ Header Expander: Inline Current File",
+        "category": "C++ Expander"
+      },
+      {
+        "command": "cpp-header-expander.expandToClipboard",
+        "title": "C++ Header Expander: Inline to Clipboard",
+        "category": "C++ Expander"
+      }
+    ],
+    "configuration": {
+      "title": "C++ Header Expander",
+      "properties": {
+        "cppHeaderExpander.librarySearchPaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "A list of directory paths to query when seeking custom include headers."
+        },
+        "cppHeaderExpander.defaultOutputFilename": {
+          "type": "string",
+          "default": "expanded_output.cpp",
+          "description": "Default target file name for the expanded resulting C++ file."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^16.11.7",
+    "@types/vscode": "^1.80.0",
+    "@typescript-eslint/eslint-plugin": "^5.42.0",
+    "@typescript-eslint/parser": "^5.42.0",
+    "eslint": "^8.26.0",
+    "typescript": "^5.1.3"
+  }
+}
